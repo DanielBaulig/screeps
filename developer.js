@@ -89,7 +89,6 @@ function fillExtensionPoints(room) {
   const actualExtensions = room.find(FIND_MY_STRUCTURES, {
     filter: isExtension,
   }).length;
-  console.log('maxExtensions', maxExtensions, actualExtensions);
 
   if (maxExtensions > actualExtensions) {
     fillConstructionPoints(room, COLOR_WHITE, STRUCTURE_EXTENSION);

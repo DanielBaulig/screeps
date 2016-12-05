@@ -151,7 +151,6 @@ const utils = {
     } else if (dest instanceof Structure) {
     return creep.transfer(dest, resource) 
     } else {
-      console.log('NOT IN RANGE');
       return ERR_NOT_IN_RANGE;
     }
   },
