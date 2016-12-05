@@ -85,10 +85,15 @@ const utils = {
     const sortedEnergy = _.sortBy(droppedEnergy, (energy) => energy.amount);
     const most = sortedEnergy.pop();
     const least = sortedEnergy.shift();
-    if (most && least && (most.amount > least.amount * 2)) {
-      return most;
-    } else
-    return creep.pos.findClosestByPath(droppedEnergy);
+    const closest = creep.pos.findClosestByPath(droppedEnergy);
+    if (closest.amount > creep.carryCapacity * 0.8) {
+      return closest;
+    }
+    if (closest.amount > most.amount * 0.8) {
+      return closest;
+    }
+
+    return most;
   },
   getClosestEnergySource: function(creep) {
     return creep.pos.findClosestByPath(creep.room.find(FIND_SOURCES));
@@ -131,6 +136,12 @@ const utils = {
     return creep.pos.findClosestByPath(containers);
   },
   getResourceFrom: function(creep, resource, source) {
+    if (!source) {
+      return ERR_NOT_IN_RANGE;
+    }
+    if (source.room != creep.room) {
+      return ERR_NOT_IN_RANGE;
+    }
     if (source instanceof Resource) {
       return creep.pickup(source, resource);
     } else if (source instanceof Structure) {
@@ -142,14 +153,20 @@ const utils = {
     }
   },
   putResourceTo: function(creep, resource, dest) {
+    if (!dest) {
+      return ERR_NOT_IN_RANGE;
+    }
+    if (dest.room != creep.room) {
+      return ERR_NOT_IN_RANGE;
+    }
     if (dest instanceof RoomPosition) {
       if (creep.pos.isEqualTo(dest)) {
-      return creep.drop(resource);
+        return creep.drop(resource);
       } else {
         return ERR_NOT_IN_RANGE;
       }
     } else if (dest instanceof Structure) {
-    return creep.transfer(dest, resource) 
+      return creep.transfer(dest, resource) 
     } else {
       return ERR_NOT_IN_RANGE;
     }
@@ -171,6 +188,20 @@ const utils = {
     return threats.sort((threat1, threat2) => {
        return utils.getThreatLevel(threat1) / threat1.hits - (utils.getThreatLevel(threat2) / threat2.hits)
     }).pop();
+  },
+  getPosition(thing) {
+    if (thing instanceof RoomPosition) {
+      return thing;
+    }
+    if (thing instanceof RoomObject) {
+      return thing.pos;
+    }
+  },
+  serializeRoomPosition(roomPosition) {
+    return {x: roomPosition.x, y: roomPosition.y, roomName: roomPosition.roomName};
+  },
+  deserializeRoomPosition(serialized) {
+    return new RoomPosition(serialized.x, serialized.y, serialized.roomName);
   },
   lookForPickups,
   lookForDropOffs,

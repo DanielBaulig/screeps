@@ -10,7 +10,7 @@ function getSource(creep) {
   if (source) {
     if (source in Game.flags) {
       const flag = Game.flags[source];
-      if (!(flag.pos.roomName in Game.rooms)) {
+      if (flag.room != creep.room) {
         return flag.pos;
       }
       
@@ -36,13 +36,19 @@ function forgetSource(creep) {
 var roleHarvester = {
   name: 'miner',
   getBody(maxEnergy) {
-    if (maxEnergy < 50) {
-      return [];
-    }
-    let move = [MOVE];
-    const workParts = new Array(Math.min(Math.floor((maxEnergy - utils.getBodyEnergyCost(move)) / CreepBodyPartCosts[WORK]), 5));
-    workParts.fill(WORK);
-    return move.concat(workParts);
+    const bodies = [
+      [],
+      [MOVE, WORK],
+      [MOVE, WORK, WORK],
+      [MOVE, WORK, WORK, WORK],
+      [MOVE, WORK, WORK, WORK, WORK],
+      [MOVE, WORK, WORK, WORK, WORK, WORK],
+      [MOVE, WORK, WORK, WORK, WORK, WORK, MOVE],
+      [MOVE, WORK, WORK, WORK, WORK, WORK, MOVE, MOVE],
+    ].reverse();
+    const body = bodies.find((b) => utils.getBodyEnergyCost(b) <= maxEnergy);
+
+    return body;
   },
   /** @param {Creep} creep **/
   run: function(creep) {

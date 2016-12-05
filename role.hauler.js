@@ -15,7 +15,6 @@ var roleHauler = {
       [MOVE, CARRY, CARRY, CARRY, CARRY], // 250
       [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY], // 300
       [MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 450
-  //      [MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 500
       [MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 600
       [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 750
     ].reverse();
@@ -27,10 +26,14 @@ var roleHauler = {
   
   startHauling(creep) {
     creep.memory.hauling = true;
+    creep.memory.target = utils.serializeRoomPosition(
+      utils.getPosition(this.getSource(creep))
+    );
     creep.say('hauling');
   },
   stopHauling(creep) {
     creep.memory.hauling = false;
+    delete creep.memory.target;
     creep.say('delivering');
   },
   
@@ -74,7 +77,20 @@ var roleHauler = {
   },
   
   haul(creep) {
-    const source = this.getSource(creep);
+    const target = creep.memory.target;
+    let source = null;
+
+    if (target) {
+      source = utils.lookForPickups(
+        utils.deserializeRoomPosition(target),
+        RESOURCE_ENERGY
+      ).pop();
+    } 
+
+    if(!source) {
+      source = this.getSource(creep);
+    }
+
     if (!source && _.sum(creep.carry) >= creep.carryCapacity / 2) {
       return this.stopHauling(creep);
     }

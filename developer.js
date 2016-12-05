@@ -144,6 +144,21 @@ function fillGuardPoints(room) {
   });
 }
 
+function fillClaimPoints(room) {
+  const claimFlags = getFlags(COLOR_PURPLE);
+  claimFlags.forEach(flag => {
+    const claimer = flag.memory.claimer;
+    if (!(claimer in Game.creeps)) {
+      flag.memory.claimer = buildCreep(
+        room,
+        'claimer',
+        room.energyAvailable,
+        {target: flag.name}
+      );
+    }
+  });
+}
+
 function fillMiningPoints(room) {
   const mines = getFlags(COLOR_YELLOW);
   mines.forEach(flag => {
@@ -166,18 +181,24 @@ function fillPickupPoints(room) {
 
 function recycleOutdatedCreeps(room) {
   const maximumEnergy = room.energyCapacityAvailable;
-  const creeps = room.find(FIND_MY_CREEPS, {
+  const creeps = room.find(
+    FIND_MY_CREEPS, {
     filter: (creep) => {
       const possibleBody = roles.getCreepBody(creep.memory.role, maximumEnergy);
       let possibleBodyCost = utils.getBodyEnergyCost(possibleBody);
       const actualBody = creep.body.map(part => part.type);
       let actualBodyCost = utils.getBodyEnergyCost(actualBody);
 
-      if (possibleBodyCost > actualBodyCost) {
-        const memory = creep.memory;
-        memory.behaviors = memory.behaviors.filter(v => 'autoRenew');
+      return possibleBodyCost > actualBodyCost;
       }
-    },
+    }
+  );
+
+  creeps.forEach(creep => {
+    // For now, let's not actively recycle them but just let them 
+    // run out of turns to live.
+    const memory = creep.memory;
+    memory.behaviors = memory.behaviors.filter(v => v != 'autoRenew');
   });
 }
 
@@ -190,14 +211,20 @@ const phases = {
     if (room.energyAvailable >= room.energyCapacityAvailable) {
       // churn out as many upgrader as we can support with our energy
       // we use full storage container as a benchmark for how many upgrader we can support
+
+      let containers = room.find(
+        FIND_STRUCTURES, 
+        { filter: (s) => isContainer(s) }
+      );
       let fullContainers = room.find(
         FIND_STRUCTURES, 
         { filter: (s) => isContainer(s) && isStoreAtCapacity(s) }
       );
-      if (fullContainers.length) {
+      if (fullContainers.length == containers.length) {
         buildCreep(room, 'upgrader', room.energyAvailable);
       }
       
+      fillClaimPoints(room);
       // Fill memory caps for all roles
       fillCreepRoleCapsFromMemory(room);
       // Fill guard points

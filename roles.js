@@ -8,6 +8,7 @@ const roles = [
   require('role.hauler'), 
   require('role.recycle'), 
   require('role.warrior'),
+  require('role.claimer'),
 ];
 
 const rolesByName = roles.reduce((redux, role) => Object.assign(redux, { [role.name]: role }), {});
