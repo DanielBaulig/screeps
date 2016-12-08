@@ -24,7 +24,9 @@ module.exports = {
     return body;  
   },
   getTarget(creep) {
-    let target = creep.memory.target;
+    let target = creep.memory.assignedTo ?
+      creep.memory.assignedTo :
+      creep.memory.target;
     const leader = this.getLeader(creep);
     if (leader) {
       target = this.getTarget(leader);
@@ -68,9 +70,11 @@ module.exports = {
       let objects = o.look();
       for(let i = 0; i < objects.length; i++) {
         let object = objects[i];
-        switch (object) {
+        switch (object.type) {
           case LOOK_CREEPS:
+              return object.creep;
           case LOOK_STRUCTURES:
+              return object.structure;
           case LOOK_CONSTRUCTION_SITES:
             return object;
         }
@@ -101,7 +105,7 @@ module.exports = {
     let target = this.getTarget(creep);
     let mission = this.getMission(creep);
     
-    let threats = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 1, {filter: (c) => getThreatLevel(c) > 0});
+    let threats = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 1, {filter: (c) => utils.getThreatLevel(c) > 0});
     if (threats.length) {
       this.attack(creep, utils.getPriorityTarget(threats));
     }

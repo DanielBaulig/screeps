@@ -3,7 +3,6 @@ const log = require('log');
 const utils = require('utils');
 
 const {
-  isContainer,
   isStoreAtCapacity,
   doesCreepExist,
   isEnergyAtCapacity,
@@ -12,10 +11,31 @@ const {
   isHarvester,
   isUpgrader,
   isExtension,
+  hasStore,
+  isMyRoom,
+  isInRoom,
 } = require('filters');
 
+function getRoomControllerLevel(room) {
+  if (!room.controller) {
+    return null;
+  }
+  return room.controller.level;
+}
+
 function getMaxExtensions(controllerLevel) {
-  return 5 * (controllerLevel - 1);
+  const levelToExtensions = [
+    0,
+    0,
+    5,
+    10,
+    20,
+    30,
+    40,
+    50,
+    60
+  ];
+  return levelToExtensions[controllerLevel];
 }
 
 function getMinimumEnergy(room) {
@@ -81,11 +101,8 @@ function fillCreepRoleCapsFromMemory(room) {
 }
 
 function fillExtensionPoints(room) {
-  const controller = room.controller;
-  if (!controller.my) {
-    return;
-  }
-  const maxExtensions = getMaxExtensions(controller.level);
+  const controllerLevel = getRoomControllerLevel(room);
+  const maxExtensions = getMaxExtensions(controllerLevel);
   const actualExtensions = room.find(FIND_MY_STRUCTURES, {
     filter: isExtension,
   }).length;
@@ -93,6 +110,28 @@ function fillExtensionPoints(room) {
   if (maxExtensions > actualExtensions) {
     fillConstructionPoints(room, COLOR_WHITE, STRUCTURE_EXTENSION);
   }
+}
+
+function fillRemoteBuilderPoints(room) {
+  const remoteBuildPoint = getFlags(COLOR_GREEN).forEach(flag => {
+    if (flag.secondaryColor != COLOR_GREEN) {
+      return;
+    }
+    if (flag.memory.builder in Game.creeps) {
+      return;
+    }
+    flag.memory.builder = buildCreep(
+      room,
+      'builder',
+      room.energyAvailable,
+      {
+        home: flag.room.name,
+        behaviors: ['emergencyUpgrade', 'autoRenew'],
+        unconvertable: true,
+        allowMining: true
+      }
+    );
+  });
 }
 
 function fillConstructionPoints(room, secondaryColor, structureType) {
@@ -125,8 +164,16 @@ function setupSourceSlots(room) {
   room.memory.sources = Object.assign(memory, room.memory.sources);
 }
 
-function getFlags(color) {
-  return _.filter(Game.flags, (flag) => flag.color == color);
+function getFlags(color, secondaryColor, room) {
+  return _.filter(Game.flags, (flag) => {
+    const secondaryColorTest = 
+      secondaryColor ? secondaryColor == flag.secondaryColor : true;
+    const roomTest = 
+      room ? isInRoom(flag, room) : true;
+    const colorTest = flag.color == color;
+
+    return colorTest && secondaryColorTest && roomTest;
+  });
 }
 
 function fillGuardPoints(room) {
@@ -146,6 +193,26 @@ function fillGuardPoints(room) {
 
 function fillClaimPoints(room) {
   const claimFlags = getFlags(COLOR_PURPLE);
+  claimFlags.filter((flag) => {
+    const threshold = flag.memory.threshold;
+    if (threshold) {
+      if (flag.room) {
+        const structures = flag.pos.lookFor(LOOK_STRUCTURES);
+        if (!(
+          structures.length && 
+          structures[0] instanceof StructureController && 
+          structures[0].reservation && 
+          structures[0].reservation.ticksToEnd < threshold
+        )) {
+          return false;
+        }
+      }
+    }
+    if (!hasHighLevelController(room)) {
+      return false;
+    }
+    return true;
+  });
   claimFlags.forEach(flag => {
     const claimer = flag.memory.claimer;
     if (!(claimer in Game.creeps)) {
@@ -153,30 +220,48 @@ function fillClaimPoints(room) {
         room,
         'claimer',
         room.energyAvailable,
-        {target: flag.name}
+        {
+          target: flag.name,
+          mission: flag.secondaryColor === COLOR_BLUE ? 'claim' : 'reserve',
+        }
       );
     }
   });
 }
 
+function hasHighLevelController(room) {
+  const level = getRoomControllerLevel(room);
+  const max = _.reduce(Game.rooms, (max, room) => Math.max(max, getRoomControllerLevel(room)), 0);
+  return max <= level;
+}
+
 function fillMiningPoints(room) {
-  const mines = getFlags(COLOR_YELLOW);
-  mines.forEach(flag => {
-     const miner = flag.memory.miner;
-     if (!(miner in Game.creeps)) {
-       flag.memory.miner = buildCreep(room, 'miner', room.energyCapacityAvailable, {source: flag.name})
-     }
+  const mines = getFlags(COLOR_YELLOW).filter(flag => 
+    isInRoom(flag, room) || hasHighLevelController(room)
+  );
+  fillPointsWithRole(room, mines, 'miner');
+}
+
+function fillPointsWithRole(room, points, role, memory) {
+  points.forEach((point) => {
+    const mem = typeof memory == 'function' ? memory(point) : memory;
+    const assignee = point.memory[role];
+    if (!doesCreepExist(assignee)) {
+      point.memory[role] = buildCreep(
+        room,
+        role,
+        room.energyCapacityAvailable,
+        Object.assign({assignedTo: point.name}, mem)
+      );
+    }
   });
 }
 
 function fillPickupPoints(room) {
-  const pickupPoints = getFlags(COLOR_BLUE);
-  pickupPoints.forEach(flag => {
-    const hauler = flag.memory.hauler;
-    if (!(hauler in Game.creeps)) {
-      flag.memory.hauler = buildCreep(room, 'hauler', room.energyCapacityAvailable, {source: flag.name});
-    }
-  });
+  const pickupPoints = getFlags(COLOR_BLUE, COLOR_BLUE).filter(flag => 
+    isInRoom(flag, room) || hasHighLevelController(room)
+  );
+  fillPointsWithRole(room, pickupPoints, 'hauler');
 }
 
 function recycleOutdatedCreeps(room) {
@@ -202,9 +287,22 @@ function recycleOutdatedCreeps(room) {
   });
 }
 
+function transitionToPhase(room, phase) {
+  room.memory.phase = phase;
+  return phases[phase](room);
+}
+
 const phases = {
   bootstrap: function(room) {
-    
+    if (room.controller.level > 1) {
+      return transitionToPhase(room, 'growControllerLevel');
+    }
+    const sources = room.find(FIND_SOURCES);
+    if (room.energyAvailable >= room.energyCapacityAvailable) {
+      fillCreepRoleCap(room, 'harvester', sources.length);
+      fillCreepRoleCap(room, 'upgrader', sources.length);
+    }
+
   },
   growControllerLevel: function (room) {
     // Only build creeps at maximum energy available
@@ -214,22 +312,20 @@ const phases = {
 
       let containers = room.find(
         FIND_STRUCTURES, 
-        { filter: (s) => isContainer(s) }
+        { filter: (s) => hasStore(s) }
       );
-      let fullContainers = room.find(
-        FIND_STRUCTURES, 
-        { filter: (s) => isContainer(s) && isStoreAtCapacity(s) }
-      );
-      if (fullContainers.length == containers.length) {
+      const energyStored = containers.reduce((sum, container) => sum + container.store[RESOURCE_ENERGY], 0);
+      if (energyStored > 1000 * getRoomControllerLevel(room)) {
         buildCreep(room, 'upgrader', room.energyAvailable);
       }
       
+      fillRemoteBuilderPoints(room);
       fillClaimPoints(room);
       // Fill memory caps for all roles
       fillCreepRoleCapsFromMemory(room);
       // Fill guard points
       fillGuardPoints(room); // Red Flags
-      // Fill pikcup routes
+      // Fill pickup routes
       fillPickupPoints(room); // Blue Flags
       // Fill mining locations
       fillMiningPoints(room); // Yellow Flags
@@ -240,7 +336,7 @@ const phases = {
     if (!room.find(FIND_MY_CREEPS, {filter: (c) => isHauler(c) || isHarvester(c) }).length) {
       // Try to convert a builder or upgrader
       const convertables = room.find(
-        FIND_MY_CREEPS, {filter: (c) => isBuilder(c) || isUpgrader(c) }
+        FIND_MY_CREEPS, {filter: (c) => !c.memory.unconvertable && (isBuilder(c) || isUpgrader(c))  }
       );
       if (convertables.length) {
         convertables[0].memory.role = 'harvester';
@@ -258,6 +354,11 @@ const phases = {
 module.exports = {
   getMinimumEnergy,
   run(room) {
-    phases.growControllerLevel(room);
+    const phase = room.memory.phase;
+    if (typeof phases[phase] != 'function') {
+      return console.log('Phase', phase,'is not a valid phase for room', room.name);
+    }
+    console.log('Running', phase, 'on Room', room);
+    phases[phase](room);
   },
 };

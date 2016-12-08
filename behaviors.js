@@ -2,6 +2,7 @@ const behaviors = [
   require('behavior.roadRepair'),
   require('behavior.containerRepair'),
   require('behavior.autoRenew'),
+  require('behavior.emergencyUpgrade'),
 ];
 
 const behaviorsByName = behaviors.reduce((redux, behavior) => Object.assign(redux, {[behavior.name]: behavior}), {});

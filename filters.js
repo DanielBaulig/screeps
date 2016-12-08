@@ -47,7 +47,15 @@ function isStoreAtCapacity(c) {
 }
 
 function isContainer(o) {
-  return o instanceof StructureContainer;
+  return o instanceof StructureContainer || o instanceof StructureStorage;
+}
+
+function isStorage(o) {
+  return o instanceof StructureStorage;
+}
+
+function hasStore(o) {
+  return isContainer(o) || isStorage(o);
 }
 
 function isCreep(o) {
@@ -98,6 +106,18 @@ function isUpgrader(c) {
   return isCreep(c) && c.memory.role == 'upgrader';
 }
 
+function isMyRoom(r) {
+  return r.controller && isMyObject(r.controller);
+}
+
+function isMyObject(o) {
+  return o.my;
+}
+
+function isInRoom(o, r) {
+  return o.pos.roomName == r.name;
+}
+
 module.exports = {
   isEnergyAtCapacity,
   isEnergyDepleted,
@@ -118,4 +138,8 @@ module.exports = {
   isHauler,
   isBuilder,
   isUpgrader,
+  hasStore,
+  isMyObject,
+  isMyRoom,
+  isInRoom,
 };

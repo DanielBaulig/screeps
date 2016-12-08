@@ -29,6 +29,7 @@ function getCreepDefaultBody(maxEnergy) {
     [MOVE, MOVE, MOVE, CARRY, CARRY, WORK, WORK, WORK, WORK], // 650
     [MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, WORK, WORK, WORK], // 750
     [MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, WORK, WORK, WORK, WORK], // 800
+    [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, WORK, WORK, WORK, WORK, WORK, WORK], // 1050
   ].reverse();
   
   const body = defaultBodies.find((b) => utils.getBodyEnergyCost(b) <= maxEnergy);

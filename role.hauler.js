@@ -2,7 +2,6 @@ const utils = require('utils');
 const {
   isCarryAtCapacity,
   isCarryDepleted,
-  isContainer,
 } = require('filters');
 
 var roleHauler = {
@@ -17,6 +16,9 @@ var roleHauler = {
       [MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 450
       [MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 600
       [MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 750
+      [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 900
+      [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 1050
+      [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], // 1200
     ].reverse();
     
     const body = bodies.find((b) => utils.getBodyEnergyCost(b) <= maxEnergy);
@@ -26,9 +28,10 @@ var roleHauler = {
   
   startHauling(creep) {
     creep.memory.hauling = true;
-    creep.memory.target = utils.serializeRoomPosition(
-      utils.getPosition(this.getSource(creep))
-    );
+    let target = utils.getPosition(this.getSource(creep));
+    if (target) {
+        creep.memory.target = utils.serializeRoomPosition(target);
+    }
     creep.say('hauling');
   },
   stopHauling(creep) {
@@ -40,7 +43,9 @@ var roleHauler = {
   getSource(creep) {
     let location = null;
     
-    if (creep.memory.source) {
+    if (creep.memory.assignedTo) {
+      location = creep.getFlagLocation(creep.memory.assignedTo);
+    } else if (creep.memory.source) {
       location = utils.getFlagLocation(creep.memory.source);
     }
     
@@ -81,8 +86,12 @@ var roleHauler = {
     let source = null;
 
     if (target) {
+      let position = utils.deserializeRoomPosition(target);
+      if (position.roomName != creep.room.name) {
+        return creep.moveTo(position);
+      }
       source = utils.lookForPickups(
-        utils.deserializeRoomPosition(target),
+        position,
         RESOURCE_ENERGY
       ).pop();
     } 

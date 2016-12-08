@@ -3,10 +3,13 @@ const CreepBodyPartCosts = require('CreepBodyPartCosts');
 const {
   isCarryAtCapacity,
   isCarryDepleted,
+  hasStore,
 } = require('filters');
 
 function getSource(creep) {
-  let source = creep.memory.source;
+  let source = creep.memory.assignedTo ? 
+    creep.memory.assignedTo : 
+    creep.memory.source;
   if (source) {
     if (source in Game.flags) {
       const flag = Game.flags[source];
@@ -70,7 +73,7 @@ var roleHarvester = {
       let containers = creep.pos.findInRange(
         FIND_STRUCTURES, 
         1, 
-        { filter: isContainer }
+        { filter: hasStore }
       );
       if (containers.length) {
         creep.transfer(containers[0], RESOURCE_ENERGY);

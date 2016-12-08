@@ -9,8 +9,8 @@ module.exports = {
   for(name in creeps) {
     const runCreepStartCPU = Game.cpu.getUsed();
     var creep = Game.creeps[name];
-    behaviors.run(creep);
     roles.run(creep);
+    behaviors.run(creep);
     
     cpuByRole[roles.getRole(creep)] = (cpuByRole[roles.getRole(creep)] || 0) + Game.cpu.getUsed() - runCreepStartCPU;
   }

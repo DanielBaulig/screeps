@@ -15,6 +15,9 @@ var roleBuilder = {
     }
 
     if(creep.memory.building) {
+      if (creep.memory.home != creep.room.name) {
+        return creep.moveTo(new RoomPosition(0, 0, creep.memory.home));
+      }
       const site = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
       if (!site) {
         const structureNeedingRepair = creep.pos.findClosestByPath(
@@ -39,6 +42,9 @@ var roleBuilder = {
       }
     } else {
       var source = utils.getBestEnergyPickup(creep);
+      if (!source && creep.memory.allowMining) {
+        source = utils.getBestEnergySource(creep);
+      }
       if (utils.getResourceFrom(creep, RESOURCE_ENERGY, source) == ERR_NOT_IN_RANGE) {
         creep.moveTo(source);
       }

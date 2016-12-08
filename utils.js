@@ -2,16 +2,16 @@ const CreepBodyPartCosts = require('CreepBodyPartCosts');
 const { 
   isEnergyAtCapacity, 
   isStoreDepleted, 
-  isContainer, 
   isExtension, 
   isStoreAtCapacity,
   isEnergy,
+  hasStore,
 } = require('filters');
 
 function findContainersWith(room, resource) {
   return room.find(
     FIND_STRUCTURES, 
-    { filter: (s) => isContainer(s) && !isStoreDepleted(s, resource) }
+    { filter: (s) => hasStore(s) && !isStoreDepleted(s, resource) }
   );
 }
 
@@ -24,7 +24,7 @@ function findMySpawnsAtCapacity(room) {
 
 function lookForPickups(pos, resource) {
   return pos.lookFor(LOOK_STRUCTURES, {
-    filter: (s) => isContainer(s) && !isStoreDepleted(s, resource),
+    filter: (s) => hasStore(s) && !isStoreDepleted(s, resource),
   }).concat(pos.lookFor(LOOK_RESOURCES, {
     filter: (r) => isEnergy(r)
   }));
@@ -36,7 +36,7 @@ function lookForSources(pos) {
 
 function lookForDropOffs(pos) {
   return pos.lookFor(LOOK_STRUCTURES, {
-    filter: (s) => isContainer(s) && !isStoreAtCapacity(s),
+    filter: (s) => hasStore(s) && !isStoreAtCapacity(s),
   });
 }
 
@@ -75,7 +75,7 @@ const utils = {
     
     const emptyContainers = creep.room.find(
       FIND_STRUCTURES, 
-      { filter: isContainer }
+      { filter: hasStore }
     );
     
     return creep.pos.findClosestByPath(emptyContainers);
@@ -86,8 +86,14 @@ const utils = {
     const most = sortedEnergy.pop();
     const least = sortedEnergy.shift();
     const closest = creep.pos.findClosestByPath(droppedEnergy);
+    if (!closest) {
+      return;
+    }
     if (closest.amount > creep.carryCapacity * 0.8) {
       return closest;
+    }
+    if (!most) {
+      return;
     }
     if (closest.amount > most.amount * 0.8) {
       return closest;
@@ -123,13 +129,13 @@ const utils = {
     
     let containers = creep.room.find(
       FIND_STRUCTURES,
-      { filter: (s) => isContainer(s) && !isStoreAtCapacity(s) }
+      { filter: (s) => hasStore(s) && !isStoreAtCapacity(s) }
     );
     
     if (!containers.length) {
       containers = creep.room.find(
         FIND_STRUCTURES,
-        { filter: (s) => isContainer(s) }
+        { filter: (s) => hasStore(s) }
       );
     }
     
