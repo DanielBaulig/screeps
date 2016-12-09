@@ -67,7 +67,7 @@ function isExtension(o) {
 }
 
 function isEnergy(r) {
-  return r.resourceType == RESOURCE_ENERGY;
+  return r.resourceType === RESOURCE_ENERGY;
 }
 
 function isTower(s) {
@@ -118,6 +118,10 @@ function isInRoom(o, r) {
   return o.pos.roomName == r.name;
 }
 
+function isRoomVisible(r) {
+  return r && r.name in Game.rooms;
+}
+
 module.exports = {
   isEnergyAtCapacity,
   isEnergyDepleted,
@@ -142,4 +146,5 @@ module.exports = {
   isMyObject,
   isMyRoom,
   isInRoom,
+  isRoomVisible,
 };

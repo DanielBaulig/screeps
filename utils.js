@@ -23,11 +23,11 @@ function findMySpawnsAtCapacity(room) {
 }
 
 function lookForPickups(pos, resource) {
-  return pos.lookFor(LOOK_STRUCTURES, {
-    filter: (s) => hasStore(s) && !isStoreDepleted(s, resource),
-  }).concat(pos.lookFor(LOOK_RESOURCES, {
-    filter: (r) => isEnergy(r)
-  }));
+  return pos.lookFor(LOOK_STRUCTURES).filter(
+      s =>  hasStore(s) && !isStoreDepleted(s, resource)
+  ).concat(pos.lookFor(LOOK_RESOURCES).filter(
+    (r) => isEnergy(r)
+  ));
 }
 
 function lookForSources(pos) {

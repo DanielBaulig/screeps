@@ -14,6 +14,7 @@ const {
   hasStore,
   isMyRoom,
   isInRoom,
+  isRoomVisible,
 } = require('filters');
 
 function getRoomControllerLevel(room) {
@@ -177,56 +178,44 @@ function getFlags(color, secondaryColor, room) {
 }
 
 function fillGuardPoints(room) {
-  const guardFlags = getFlags(COLOR_RED);
-  guardFlags.forEach((flag) => {
-    const guard = flag.memory.guard;
-    if (!(guard in Game.creeps)) {
-      flag.memory.guard = buildCreep(
-        room,
-        'warrior',
-        room.energyAvailable, 
-        {mission: 'guard', target: flag.name}
-      );
-    }
+  const guardFlags = getFlags(COLOR_RED).filter(flag =>
+      isInRoom(flag, room) || isInNextRoom(flag, room)
+  );
+  fillPointsWithRole(room, guardFlags, 'warrior', {mission: 'guard'});
+}
+
+function getReservationTicks(controller) {
+  if (!(controller instanceof StructureController)) {
+    return 0;
+  }
+  return (controller.reservation && controller.reservation.ticksToEnd) || 0;
+}
+
+function getController(room) {
+  if (!isRoomVisible(room)) {
+    return null;
+  }
+  return room.controller;
+}
+
+function fillReservePoints(room) {
+  const reserveFlags = getFlags(COLOR_PURPLE, COLOR_PURPLE).filter(flag => {
+    const remainingTicks = getReservationTicks(getController(flag.room));
+    const threshold = flag.memory.threshold || 0;
+    return (isInRoom(flag, room) || isInNextRoom(flag, room)) &&
+      remainingTicks <= threshold;
   });
+  fillPointsWithRole(room, reserveFlags, 'claimer', {mission:'reserve'});
 }
 
 function fillClaimPoints(room) {
-  const claimFlags = getFlags(COLOR_PURPLE);
-  claimFlags.filter((flag) => {
-    const threshold = flag.memory.threshold;
-    if (threshold) {
-      if (flag.room) {
-        const structures = flag.pos.lookFor(LOOK_STRUCTURES);
-        if (!(
-          structures.length && 
-          structures[0] instanceof StructureController && 
-          structures[0].reservation && 
-          structures[0].reservation.ticksToEnd < threshold
-        )) {
-          return false;
-        }
-      }
-    }
-    if (!hasHighLevelController(room)) {
-      return false;
-    }
-    return true;
+  const reserveFlags = getFlags(COLOR_PURPLE, COLOR_BLUE).filter(flag => {
+    const remainingTicks = getReservationTicks(getController(flag.room));
+    const threshold = flag.memory.threshold || 0;
+    return (isInRoom(flag, room) || isInNextRoom(flag, room)) &&
+      remainingTicks <= threshold;
   });
-  claimFlags.forEach(flag => {
-    const claimer = flag.memory.claimer;
-    if (!(claimer in Game.creeps)) {
-      flag.memory.claimer = buildCreep(
-        room,
-        'claimer',
-        room.energyAvailable,
-        {
-          target: flag.name,
-          mission: flag.secondaryColor === COLOR_BLUE ? 'claim' : 'reserve',
-        }
-      );
-    }
-  });
+  fillPointsWithRole(room, reserveFlags, 'claimer', {mission:'claim'});
 }
 
 function hasHighLevelController(room) {
@@ -235,9 +224,13 @@ function hasHighLevelController(room) {
   return max <= level;
 }
 
+function isInNextRoom(object, room) {
+  return Game.map.getRoomLinearDistance(object.pos.roomName, room.name) === 1;
+}
+
 function fillMiningPoints(room) {
   const mines = getFlags(COLOR_YELLOW).filter(flag => 
-    isInRoom(flag, room) || hasHighLevelController(room)
+    isInRoom(flag, room) || isInNextRoom(flag, room)
   );
   fillPointsWithRole(room, mines, 'miner');
 }
@@ -259,7 +252,7 @@ function fillPointsWithRole(room, points, role, memory) {
 
 function fillPickupPoints(room) {
   const pickupPoints = getFlags(COLOR_BLUE, COLOR_BLUE).filter(flag => 
-    isInRoom(flag, room) || hasHighLevelController(room)
+    isInRoom(flag, room) || isInNextRoom(flag, room)
   );
   fillPointsWithRole(room, pickupPoints, 'hauler');
 }
@@ -315,12 +308,13 @@ const phases = {
         { filter: (s) => hasStore(s) }
       );
       const energyStored = containers.reduce((sum, container) => sum + container.store[RESOURCE_ENERGY], 0);
-      if (energyStored > 1000 * getRoomControllerLevel(room)) {
+      if (energyStored > 1000 * (getRoomControllerLevel(room) - 1)) {
         buildCreep(room, 'upgrader', room.energyAvailable);
       }
       
       fillRemoteBuilderPoints(room);
       fillClaimPoints(room);
+      fillReservePoints(room);
       // Fill memory caps for all roles
       fillCreepRoleCapsFromMemory(room);
       // Fill guard points
@@ -354,11 +348,25 @@ const phases = {
 module.exports = {
   getMinimumEnergy,
   run(room) {
+    const lastLevel = room.memory.lastControllerLevel;
+    const currentLevel = room.controller.level;
+    if (lastLevel < currentLevel) {
+      room.memory.lastControllerLevel = currentLevel;
+      console.log(
+        'Conntroller in room',
+        room.name,
+        'upgraded to level',
+        '<font color="red">',
+        currentLevel,
+        '</font>'
+      );
+    }
+
+
     const phase = room.memory.phase;
     if (typeof phases[phase] != 'function') {
       return console.log('Phase', phase,'is not a valid phase for room', room.name);
     }
-    console.log('Running', phase, 'on Room', room);
     phases[phase](room);
   },
 };

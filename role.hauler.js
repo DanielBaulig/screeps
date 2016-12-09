@@ -44,7 +44,7 @@ var roleHauler = {
     let location = null;
     
     if (creep.memory.assignedTo) {
-      location = creep.getFlagLocation(creep.memory.assignedTo);
+      location = utils.getFlagLocation(creep.memory.assignedTo);
     } else if (creep.memory.source) {
       location = utils.getFlagLocation(creep.memory.source);
     }
@@ -84,6 +84,11 @@ var roleHauler = {
   haul(creep) {
     const target = creep.memory.target;
     let source = null;
+
+    const closeEnergy = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
+    if (closeEnergy.length) {
+      utils.getResourceFrom(creep, RESOURCE_ENERGY, closeEnergy.pop());
+    }
 
     if (target) {
       let position = utils.deserializeRoomPosition(target);

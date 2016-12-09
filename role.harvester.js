@@ -5,6 +5,21 @@ const {
 } = require('filters');
 
 var roleHarvester = {
+  getBody(maxEnergy) {
+    const bodies = [
+      [],
+      [MOVE, CARRY, WORK, WORK], // 300
+      [MOVE, CARRY, CARRY, WORK, WORK], // 350
+      [MOVE, MOVE,  CARRY, CARRY, WORK, WORK], // 400
+      [MOVE, MOVE,  CARRY, CARRY, WORK, WORK, WORK, WORK], // 600
+      [MOVE, MOVE, MOVE, CARRY, CARRY, WORK, WORK, WORK, WORK, WORK], // 750
+      [MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, WORK, WORK, WORK, WORK, WORK], // 850
+      [MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, WORK, WORK, WORK, WORK, WORK], // 1050
+    ].reverse();
+    const body = bodies.find((b) => utils.getBodyEnergyCost(b) <= maxEnergy);
+
+    return body;
+  },
   name: 'harvester',
   getSource(creep) {
     let location = null;

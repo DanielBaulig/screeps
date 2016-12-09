@@ -45,7 +45,6 @@ function getBehaviorsByRole(role) {
       return  ['roadRepair', 'containerRepair', 'autoRenew'];
     case 'upgrader':
     case 'hauler':
-      return ['autoRenew'];
     case 'miner':
     default:
       return [];
